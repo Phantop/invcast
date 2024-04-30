@@ -30,13 +30,12 @@ def create_podcast_feed(response_text, type_param):
     title = root.find('.//atom:title', namespace).text
     description = title  # Default description
     link = root.find('.//atom:link[@rel="alternate"]', namespace).attrib['href']
-    image_url = root.find('.//atom:icon', namespace).text
+    image = root.find('.//atom:icon', namespace)
     generator = 'invidious_cast'
     last_build_date = 'Your Last Build Date'
     author = root.find('.//atom:author/atom:name', namespace).text
     copyright = 'Your Copyright'
     language = 'en-US' #root.find('.//atom:xml:lang', namespace).text  # Example language
-    image = root.find('.//atom:icon', namespace).text
 
     # Add channel elements without namespace prefixes
     ET.SubElement(channel, 'title').text = title
@@ -44,10 +43,14 @@ def create_podcast_feed(response_text, type_param):
     ET.SubElement(channel, 'link').text = link
 
     # Add image element
-    image_elem = ET.SubElement(channel, 'image')
-    ET.SubElement(image_elem, 'url').text = image_url
-    ET.SubElement(image_elem, 'title').text = title
-    ET.SubElement(image_elem, 'link').text = link
+    if image:
+        image_url = image.text
+        image_elem = ET.SubElement(channel, 'image')
+        ET.SubElement(image_elem, 'url').text = image_url
+        ET.SubElement(image_elem, 'title').text = title
+        ET.SubElement(image_elem, 'link').text = link
+        itunes_image_href = image_url
+        ET.SubElement(channel, 'itunes:image', href=itunes_image_href)
 
     ET.SubElement(channel, 'generator').text = generator
     #ET.SubElement(channel, 'lastBuildDate').text = last_build_date
@@ -65,7 +68,6 @@ def create_podcast_feed(response_text, type_param):
     itunes_owner_email = 'Your iTunes Owner Email'
     itunes_explicit = 'No'
     itunes_category_text = 'Your iTunes Category Text'
-    itunes_image_href = image_url
 
     ET.SubElement(channel, 'itunes:author').text = itunes_author
     ET.SubElement(channel, 'itunes:summary').text = itunes_summary
@@ -82,7 +84,6 @@ def create_podcast_feed(response_text, type_param):
     #sub_category = ET.SubElement(itunes_category, 'itunes:category')
     #sub_category.set('text', 'Your Subcategory Text')
 
-    ET.SubElement(channel, 'itunes:image', href=itunes_image_href)
 
     # Extract and add episodes
     entries = root.findall('.//atom:entry', namespace)
@@ -161,9 +162,9 @@ def create_podcast_feed(response_text, type_param):
 
 
 
-@app.route('/podcast', methods=['GET'])
-def handle_podcast_request():
-    channel_id = request.args.get('channelId')
+@app.route('/channel', methods=['GET'])
+def handle_channel_request():
+    channel_id = request.args.get('id')
     type_param = request.args.get('type', 'video')  # Default to 'video' if type is not specified
 
     if not channel_id:
@@ -174,6 +175,34 @@ def handle_podcast_request():
 
     # Construct the URL using the channel ID and permitted source
     url = f'{permitted_source}/feed/channel/{channel_id}'
+
+    try:
+        # Make a GET request to the URL
+        response = requests.get(url)
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Create the podcast feed from the XML content
+            podcast_feed = create_podcast_feed(response.text, type_param)
+            # Return the modified XML with correct content type
+            return podcast_feed, {'Content-Type': 'application/xml'}
+        else:
+            return f'Error: Unable to fetch data from the URL. Status code: {response.status_code}', response.status_code
+    except Exception as e:
+        return f'Error: {str(e)}', 500
+
+@app.route('/playlist', methods=['GET'])
+def handle_playlist_request():
+    channel_id = request.args.get('id')
+    type_param = request.args.get('type', 'video')  # Default to 'video' if type is not specified
+
+    if not channel_id:
+        return 'Error: Playlist ID is required.', 400
+
+    # Use the first permitted source in the list
+    permitted_source = PERMITTED_SOURCES[0] if PERMITTED_SOURCES else ''
+
+    # Construct the URL using the channel ID and permitted source
+    url = f'{permitted_source}/feed/playlist/{channel_id}'
 
     try:
         # Make a GET request to the URL
