@@ -12,9 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Flask application code into the container
 COPY app.py .
+COPY README.md .
 
 # Expose the port your Flask app runs on
-EXPOSE 5895
+EXPOSE 5000
 
 # Run the Flask app using Gunicorn
-CMD ["gunicorn", "-b", "0.0.0.0:5895", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]

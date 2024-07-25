@@ -1,13 +1,14 @@
-
+#!/usr/bin/env python3
 from flask import Flask, request, abort
-import requests
+from markdown import markdown
+from os import getenv
+from requests import get
 import xml.etree.ElementTree as ET
-import os
 
 app = Flask(__name__)
 
 # Define the permitted sources as a list of URLs
-PERMITTED_SOURCES = os.getenv('PERMITTED_SOURCES', 'https://inv.tux.pizza').split(',')
+PERMITTED_SOURCES = getenv('PERMITTED_SOURCES', 'https://inv.tux.pizza').split(',')
 
 def create_podcast_feed(response_text, type_param):
     # Parse the XML content
@@ -15,12 +16,12 @@ def create_podcast_feed(response_text, type_param):
 
     # Define the namespace if present in the XML
     namespace = {
-        'atom': 'http://www.w3.org/2005/Atom',
-        'yt': 'http://www.youtube.com/xml/schemas/2015',
-        'media': 'http://search.yahoo.com/mrss/',
-        'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd',
-        'dc': 'http://purl.org/dc/elements/1.1/'
-    }
+            'atom': 'http://www.w3.org/2005/Atom',
+            'yt': 'http://www.youtube.com/xml/schemas/2015',
+            'media': 'http://search.yahoo.com/mrss/',
+            'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd',
+            'dc': 'http://purl.org/dc/elements/1.1/'
+            }
 
     # Create the RSS root element with iTunes and atom namespaces
     rss = ET.Element('rss', {'version': '2.0', 'xmlns:itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd', 'xmlns:atom': 'http://www.w3.org/2005/Atom'})
@@ -169,7 +170,7 @@ def handle_channel_request():
 
     if not channel_id:
         return 'Error: Channel ID is required.', 400
-    
+
     # Use the first permitted source in the list
     permitted_source = PERMITTED_SOURCES[0] if PERMITTED_SOURCES else ''
 
@@ -178,7 +179,7 @@ def handle_channel_request():
 
     try:
         # Make a GET request to the URL
-        response = requests.get(url)
+        response = get(url)
         # Check if the request was successful
         if response.status_code == 200:
             # Create the podcast feed from the XML content
@@ -206,7 +207,7 @@ def handle_playlist_request():
 
     try:
         # Make a GET request to the URL
-        response = requests.get(url)
+        response = get(url)
         # Check if the request was successful
         if response.status_code == 200:
             # Create the podcast feed from the XML content
@@ -218,5 +219,10 @@ def handle_playlist_request():
     except Exception as e:
         return f'Error: {str(e)}', 500
 
+@app.route('/', methods=['GET'])
+def readme():
+    readme_file = open("README.md", "r")
+    return markdown(readme_file.read())
+
 if __name__ == '__main__':
-    app.run(port=5895)
+    app.run()
